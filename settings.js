@@ -28,6 +28,7 @@ const FALLBACK_ELEVEN_MODELS = [
 
 const els = {
   provider: document.getElementById("provider"),
+  builtinFields: document.getElementById("builtinFields"),
   builtinVoice: document.getElementById("builtinVoice"),
   speed: document.getElementById("speed"),
   speedOut: document.getElementById("speedOut"),
@@ -64,6 +65,7 @@ function storageSet(items) {
 
 function updateProviderVisibility() {
   const provider = els.provider.value;
+  els.builtinFields.style.display = provider === "builtin" ? "block" : "none";
   els.openaiFields.style.display = provider === "openai" ? "block" : "none";
   els.elevenLabsFields.style.display = provider === "elevenlabs" ? "block" : "none";
 }
