@@ -487,8 +487,9 @@
 
   async function resolveProvider(settings) {
     const preferred = settings.provider || "builtin";
+    if (preferred === "openai") return "builtin";
     if (!hasProviderKey(preferred, settings)) return "builtin";
-    if (preferred === "openai" || preferred === "elevenlabs" || preferred === "builtin") return preferred;
+    if (preferred === "elevenlabs" || preferred === "builtin") return preferred;
     return "builtin";
   }
 

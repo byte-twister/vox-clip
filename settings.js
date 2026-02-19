@@ -18,6 +18,7 @@ const viewMode = new URLSearchParams(window.location.search).get("mode") === "po
 document.body.dataset.view = viewMode;
 
 const SAVE_DEBOUNCE_MS = 260;
+const OPENAI_COMING_SOON = true;
 
 const FALLBACK_ELEVEN_MODELS = [
   {
@@ -113,8 +114,12 @@ function clearStatusSoon() {
 }
 
 function buildPayload() {
+  const provider = OPENAI_COMING_SOON && els.provider.value === "openai"
+    ? "builtin"
+    : els.provider.value;
+
   return {
-    provider: els.provider.value,
+    provider,
     builtinVoice: els.builtinVoice.value,
     speed: Number(els.speed.value),
     pitch: Number(els.pitch.value),
@@ -322,7 +327,10 @@ async function init() {
     throw error;
   }
 
-  els.provider.value = settings.provider;
+  const initialProvider = OPENAI_COMING_SOON && settings.provider === "openai"
+    ? "builtin"
+    : settings.provider;
+  els.provider.value = initialProvider;
   els.speed.value = settings.speed;
   els.pitch.value = settings.pitch;
   els.openaiApiKey.value = settings.openaiApiKey;
@@ -346,6 +354,10 @@ async function init() {
   });
 
   state.isHydrating = false;
+
+  if (initialProvider !== settings.provider) {
+    await saveSettings();
+  }
 }
 
 els.provider.addEventListener("change", async () => {
