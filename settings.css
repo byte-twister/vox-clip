@@ -91,6 +91,27 @@ select:focus {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(246, 242, 235, 0.84));
 }
 
+.provider-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.provider-actions button {
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.provider-status {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.provider-status[data-error="true"] {
+  color: #9f1239;
+}
+
 .actions {
   display: flex;
   align-items: center;

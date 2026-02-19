@@ -8,6 +8,7 @@
     openaiVoice: "alloy",
     openaiModel: "gpt-4o-mini-tts",
     elevenLabsApiKey: "",
+    elevenLabsModelId: "eleven_multilingual_v2",
     elevenLabsVoiceId: ""
   };
 
@@ -357,6 +358,8 @@
       throw new Error("Set ElevenLabs Voice ID in settings");
     }
 
+    const modelId = settings.elevenLabsModelId?.trim() || "eleven_multilingual_v2";
+
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`, {
       method: "POST",
       headers: {
@@ -365,7 +368,7 @@
       },
       body: JSON.stringify({
         text,
-        model_id: "eleven_multilingual_v2",
+        model_id: modelId,
         voice_settings: {
           stability: 0.5,
           similarity_boost: 0.75,

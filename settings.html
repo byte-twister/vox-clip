@@ -60,9 +60,25 @@
           <input id="elevenLabsApiKey" type="password" autocomplete="off" />
         </label>
         <label class="field">
-          <span>Voice ID</span>
+          <span>Model</span>
+          <select id="elevenLabsModelId">
+            <option value="eleven_multilingual_v2">Eleven Multilingual v2</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Voice</span>
+          <select id="elevenLabsVoiceSelect">
+            <option value="">Custom voice ID</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Voice ID (Speech ID)</span>
           <input id="elevenLabsVoiceId" type="text" placeholder="voice-id" />
         </label>
+        <div class="provider-actions">
+          <button id="elevenLabsRefreshBtn" type="button">Load models & voices</button>
+          <span id="elevenLabsFetchStatus" class="provider-status"></span>
+        </div>
       </section>
 
       <div class="actions">
