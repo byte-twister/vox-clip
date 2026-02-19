@@ -501,11 +501,13 @@
 
   function pausePlayback() {
     if (state.audio) {
-      state.audio.pause();
+      if (!state.audio.paused) {
+        state.audio.pause();
+      }
       setPausedControls();
       return;
     }
-    if (state.utterance && speechSynthesis.speaking) {
+    if (state.utterance) {
       speechSynthesis.pause();
       setPausedControls();
     }
@@ -516,7 +518,8 @@
       state.audio.play().then(() => setPlayingControls()).catch(() => setErrorStatus("Could not resume"));
       return;
     }
-    if (state.utterance && speechSynthesis.paused) {
+
+    if (state.utterance || speechSynthesis.paused) {
       speechSynthesis.resume();
       setPlayingControls();
     }
