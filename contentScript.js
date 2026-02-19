@@ -27,11 +27,24 @@
     audio: null
   };
 
+  function isContextInvalidated(error) {
+    const message = String(error?.message || "");
+    return message.includes("Extension context invalidated");
+  }
+
   function getSettings() {
-    return new Promise((resolve) => {
-      chrome.storage.local.get(DEFAULT_SETTINGS, (saved) => {
-        resolve({ ...DEFAULT_SETTINGS, ...saved });
-      });
+    return new Promise((resolve, reject) => {
+      try {
+        chrome.storage.local.get(DEFAULT_SETTINGS, (saved) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
+          resolve({ ...DEFAULT_SETTINGS, ...saved });
+        });
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 
@@ -391,6 +404,11 @@
     return true;
   }
 
+  function normalizePlaybackRate(value) {
+    const numeric = Number(value) || 1;
+    return Math.max(0.5, Math.min(2, numeric));
+  }
+
   async function resolveProvider(settings) {
     const preferred = settings.provider || "builtin";
     if (!hasProviderKey(preferred, settings)) return "builtin";
@@ -398,11 +416,13 @@
     return "builtin";
   }
 
-  async function playAudioBlob(blob) {
+  async function playAudioBlob(blob, settings) {
     cancelAudio();
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
-    audio.playbackRate = 1;
+    const playbackRate = normalizePlaybackRate(settings?.speed);
+    audio.defaultPlaybackRate = playbackRate;
+    audio.playbackRate = playbackRate;
     state.audio = audio;
 
     return new Promise((resolve, reject) => {
@@ -435,16 +455,20 @@
         await speakBuiltIn(text, settings);
       } else if (provider === "openai") {
         const blob = await synthesizeOpenAI(text, settings);
-        await playAudioBlob(blob);
+        await playAudioBlob(blob, settings);
       } else if (provider === "elevenlabs") {
         const blob = await synthesizeElevenLabs(text, settings);
-        await playAudioBlob(blob);
+        await playAudioBlob(blob, settings);
       }
 
       setIdleControls();
     } catch (error) {
       stopPlayback();
       setIdleControls();
+      if (isContextInvalidated(error)) {
+        setErrorStatus("Extension reloaded. Refresh this page.");
+        return;
+      }
       const rawMessage = error?.message || "Playback failed";
       const builtInSpeechFailed = provider === "builtin" && rawMessage === "synthesis-failed";
       setErrorStatus(

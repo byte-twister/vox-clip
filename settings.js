@@ -32,6 +32,7 @@ const els = {
   builtinVoice: document.getElementById("builtinVoice"),
   speed: document.getElementById("speed"),
   speedOut: document.getElementById("speedOut"),
+  pitchField: document.getElementById("pitchField"),
   pitch: document.getElementById("pitch"),
   pitchOut: document.getElementById("pitchOut"),
   openaiApiKey: document.getElementById("openaiApiKey"),
@@ -50,22 +51,51 @@ const els = {
 };
 
 function storageGet(defaults) {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(defaults, (items) => {
-      resolve(items);
-    });
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.storage.local.get(defaults, (items) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        resolve(items);
+      });
+    } catch (error) {
+      reject(error);
+    }
   });
 }
 
 function storageSet(items) {
-  return new Promise((resolve) => {
-    chrome.storage.local.set(items, resolve);
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.storage.local.set(items, () => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        resolve();
+      });
+    } catch (error) {
+      reject(error);
+    }
   });
+}
+
+function isContextInvalidated(error) {
+  const message = String(error?.message || "");
+  return message.includes("Extension context invalidated");
+}
+
+function showStatus(message, isError = false) {
+  els.status.textContent = message;
+  els.status.style.color = isError ? "#9f1239" : "#065f46";
 }
 
 function updateProviderVisibility() {
   const provider = els.provider.value;
   els.builtinFields.style.display = provider === "builtin" ? "block" : "none";
+  els.pitchField.style.display = provider === "builtin" ? "block" : "none";
   els.openaiFields.style.display = provider === "openai" ? "block" : "none";
   els.elevenLabsFields.style.display = provider === "elevenlabs" ? "block" : "none";
 }
@@ -221,7 +251,16 @@ function loadVoices(selectedName) {
 }
 
 async function init() {
-  const settings = await storageGet(DEFAULT_SETTINGS);
+  let settings;
+  try {
+    settings = await storageGet(DEFAULT_SETTINGS);
+  } catch (error) {
+    if (isContextInvalidated(error)) {
+      showStatus("Extension updated. Reload this settings page.", true);
+      return;
+    }
+    throw error;
+  }
 
   els.provider.value = settings.provider;
   els.speed.value = settings.speed;
@@ -274,11 +313,21 @@ els.saveBtn.addEventListener("click", async () => {
     elevenLabsVoiceId: els.elevenLabsVoiceId.value.trim()
   };
 
-  await storageSet(payload);
-  els.status.textContent = "Saved";
-  setTimeout(() => {
-    els.status.textContent = "";
-  }, 1400);
+  try {
+    await storageSet(payload);
+    showStatus("Saved");
+    setTimeout(() => {
+      els.status.textContent = "";
+    }, 1400);
+  } catch (error) {
+    if (isContextInvalidated(error)) {
+      showStatus("Extension updated. Reload this settings page.", true);
+      return;
+    }
+    showStatus("Could not save settings", true);
+  }
 });
 
-init();
+init().catch(() => {
+  showStatus("Could not load settings", true);
+});
