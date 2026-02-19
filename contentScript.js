@@ -510,19 +510,13 @@
     const chunks = splitTextIntoChunks(text, API_MAX_CHUNK_LENGTH);
     if (!chunks.length) return;
 
-    let nextBlobPromise = synthesizeElevenLabs(chunks[0], settings, signal);
-
     for (let index = 0; index < chunks.length; index += 1) {
       if (signal.aborted || sessionId !== state.playbackSessionId) {
         throw new Error("playback-cancelled");
       }
 
       setProcessingControls();
-      const blob = await nextBlobPromise;
-      const hasNext = index + 1 < chunks.length;
-      nextBlobPromise = hasNext
-        ? synthesizeElevenLabs(chunks[index + 1], settings, signal)
-        : null;
+      const blob = await synthesizeElevenLabs(chunks[index], settings, signal);
 
       setPlayingControls();
       await playAudioBlob(blob, settings, signal);
