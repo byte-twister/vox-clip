@@ -21,6 +21,7 @@
   ],
   "options_page": "settings.html",
   "action": {
-    "default_title": "VoxClip Settings"
+    "default_title": "VoxClip Settings",
+    "default_popup": "settings.html?mode=popup"
   }
 }

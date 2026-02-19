@@ -17,7 +17,3 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     source: "context-menu"
   });
 });
-
-chrome.action.onClicked.addListener(() => {
-  chrome.runtime.openOptionsPage();
-});

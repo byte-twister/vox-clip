@@ -11,6 +11,12 @@ const DEFAULT_SETTINGS = {
   elevenLabsVoiceId: ""
 };
 
+const viewMode = new URLSearchParams(window.location.search).get("mode") === "popup"
+  ? "popup"
+  : "page";
+
+document.body.dataset.view = viewMode;
+
 const FALLBACK_ELEVEN_MODELS = [
   {
     model_id: "eleven_multilingual_v2",
