@@ -11,6 +11,8 @@
     elevenLabsVoiceId: ""
   };
 
+  const BUILTIN_MAX_CHUNK_LENGTH = 220;
+
   const state = {
     toolbar: null,
     playBtn: null,
@@ -184,32 +186,101 @@
 
   function getVoices() {
     return new Promise((resolve) => {
-      const voices = speechSynthesis.getVoices();
-      if (voices.length) {
+      let settled = false;
+      let pollInterval = null;
+      let timeoutId = null;
+
+      const finish = (voices) => {
+        if (settled) return;
+        settled = true;
+        speechSynthesis.removeEventListener("voiceschanged", onChange);
+        clearInterval(pollInterval);
+        clearTimeout(timeoutId);
         resolve(voices);
+      };
+
+      const onChange = () => {
+        const voices = speechSynthesis.getVoices();
+        if (voices.length) finish(voices);
+      };
+
+      const initial = speechSynthesis.getVoices();
+      if (initial.length) {
+        finish(initial);
         return;
       }
 
-      const onChange = () => {
-        speechSynthesis.removeEventListener("voiceschanged", onChange);
-        resolve(speechSynthesis.getVoices());
-      };
-
       speechSynthesis.addEventListener("voiceschanged", onChange);
-      setTimeout(() => {
-        speechSynthesis.removeEventListener("voiceschanged", onChange);
-        resolve(speechSynthesis.getVoices());
-      }, 1200);
+      pollInterval = setInterval(() => {
+        const voices = speechSynthesis.getVoices();
+        if (voices.length) finish(voices);
+      }, 120);
+
+      timeoutId = setTimeout(() => {
+        finish(speechSynthesis.getVoices());
+      }, 2400);
     });
   }
 
-  async function speakBuiltIn(text, settings) {
-    const voices = await getVoices();
+  function splitTextIntoChunks(text, maxLength = BUILTIN_MAX_CHUNK_LENGTH) {
+    const normalized = (text || "").trim().replace(/\s+/g, " ");
+    if (!normalized) return [];
+    if (normalized.length <= maxLength) return [normalized];
+
+    const segments = normalized.match(/[^.!?]+[.!?]*\s*/g) || [normalized];
+    const chunks = [];
+    let current = "";
+
+    segments.forEach((segment) => {
+      const piece = segment.trim();
+      if (!piece) return;
+
+      if (!current) {
+        if (piece.length <= maxLength) {
+          current = piece;
+        } else {
+          const words = piece.split(" ");
+          let hardChunk = "";
+          words.forEach((word) => {
+            const next = hardChunk ? `${hardChunk} ${word}` : word;
+            if (next.length <= maxLength) {
+              hardChunk = next;
+            } else {
+              if (hardChunk) chunks.push(hardChunk);
+              hardChunk = word;
+            }
+          });
+          if (hardChunk) chunks.push(hardChunk);
+        }
+        return;
+      }
+
+      const nextChunk = `${current} ${piece}`;
+      if (nextChunk.length <= maxLength) {
+        current = nextChunk;
+      } else {
+        chunks.push(current);
+        current = piece;
+      }
+    });
+
+    if (current) chunks.push(current);
+    return chunks;
+  }
+
+  function pickFallbackVoice(voices) {
+    if (!voices.length) return null;
+    const language = (navigator.language || "").toLowerCase();
+    return voices.find((voice) => (voice.lang || "").toLowerCase() === language)
+      || voices.find((voice) => (voice.lang || "").toLowerCase().startsWith(language.split("-")[0]))
+      || voices.find((voice) => voice.default)
+      || voices.find((voice) => voice.localService)
+      || voices[0];
+  }
+
+  function speakBuiltInChunk(text, settings, voice) {
     const utterance = new SpeechSynthesisUtterance(text);
-    if (settings.builtinVoice) {
-      const voice = voices.find((v) => v.name === settings.builtinVoice);
-      if (voice) utterance.voice = voice;
-    }
+    if (voice) utterance.voice = voice;
     utterance.rate = Number(settings.speed) || 1;
     utterance.pitch = Number(settings.pitch) || 1;
     state.utterance = utterance;
@@ -225,6 +296,37 @@
       };
       speechSynthesis.speak(utterance);
     });
+  }
+
+  async function speakBuiltInChunks(chunks, settings, voice) {
+    for (const chunk of chunks) {
+      await speakBuiltInChunk(chunk, settings, voice);
+    }
+  }
+
+  async function speakBuiltIn(text, settings) {
+    const voices = await getVoices();
+    const selectedVoice = settings.builtinVoice
+      ? voices.find((voice) => voice.name === settings.builtinVoice)
+      : null;
+    const fallbackVoice = pickFallbackVoice(voices);
+    const chunks = splitTextIntoChunks(text);
+
+    speechSynthesis.cancel();
+    speechSynthesis.resume();
+
+    try {
+      await speakBuiltInChunks(chunks, settings, selectedVoice || fallbackVoice);
+    } catch (error) {
+      const message = String(error?.message || "");
+      const shouldRetry = message === "synthesis-failed" || message.includes("interrupted") || message.includes("canceled");
+      if (!shouldRetry || !fallbackVoice || (selectedVoice && selectedVoice.name === fallbackVoice.name)) {
+        throw error;
+      }
+
+      speechSynthesis.cancel();
+      await speakBuiltInChunks(chunks, settings, fallbackVoice);
+    }
   }
 
   async function synthesizeOpenAI(text, settings) {
@@ -320,10 +422,11 @@
     stopPlayback();
     state.activeText = text;
     setPlayingControls();
+    let provider = "builtin";
 
     try {
       const settings = await getSettings();
-      const provider = await resolveProvider(settings);
+      provider = await resolveProvider(settings);
 
       if (provider === "builtin") {
         await speakBuiltIn(text, settings);
@@ -339,7 +442,13 @@
     } catch (error) {
       stopPlayback();
       setIdleControls();
-      setErrorStatus(error.message || "Playback failed");
+      const rawMessage = error?.message || "Playback failed";
+      const builtInSpeechFailed = provider === "builtin" && rawMessage === "synthesis-failed";
+      setErrorStatus(
+        builtInSpeechFailed
+          ? "Browser voice unavailable. In Brave, try --enable-speech-dispatcher or use Chrome."
+          : rawMessage,
+      );
     }
   }
 
