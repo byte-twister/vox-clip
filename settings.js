@@ -17,6 +17,8 @@ const viewMode = new URLSearchParams(window.location.search).get("mode") === "po
 
 document.body.dataset.view = viewMode;
 
+const SAVE_DEBOUNCE_MS = 260;
+
 const FALLBACK_ELEVEN_MODELS = [
   {
     model_id: "eleven_multilingual_v2",
@@ -52,8 +54,13 @@ const els = {
   elevenLabsFetchStatus: document.getElementById("elevenLabsFetchStatus"),
   openaiFields: document.getElementById("openaiFields"),
   elevenLabsFields: document.getElementById("elevenLabsFields"),
-  saveBtn: document.getElementById("saveBtn"),
   status: document.getElementById("status")
+};
+
+const state = {
+  isHydrating: true,
+  saveTimerId: 0,
+  statusTimerId: 0
 };
 
 function storageGet(defaults) {
@@ -95,7 +102,54 @@ function isContextInvalidated(error) {
 
 function showStatus(message, isError = false) {
   els.status.textContent = message;
-  els.status.style.color = isError ? "#9f1239" : "#065f46";
+  els.status.style.color = isError ? "#f85149" : "#56d364";
+}
+
+function clearStatusSoon() {
+  clearTimeout(state.statusTimerId);
+  state.statusTimerId = setTimeout(() => {
+    els.status.textContent = "";
+  }, 1100);
+}
+
+function buildPayload() {
+  return {
+    provider: els.provider.value,
+    builtinVoice: els.builtinVoice.value,
+    speed: Number(els.speed.value),
+    pitch: Number(els.pitch.value),
+    openaiApiKey: els.openaiApiKey.value.trim(),
+    openaiVoice: els.openaiVoice.value.trim() || "alloy",
+    openaiModel: els.openaiModel.value.trim() || "gpt-4o-mini-tts",
+    elevenLabsApiKey: els.elevenLabsApiKey.value.trim(),
+    elevenLabsModelId: els.elevenLabsModelId.value || DEFAULT_SETTINGS.elevenLabsModelId,
+    elevenLabsVoiceId: els.elevenLabsVoiceId.value.trim()
+  };
+}
+
+async function saveSettings() {
+  if (state.isHydrating) return;
+
+  try {
+    await storageSet(buildPayload());
+    showStatus("Saved");
+    clearStatusSoon();
+  } catch (error) {
+    if (isContextInvalidated(error)) {
+      showStatus("Extension updated. Reload this settings page.", true);
+      return;
+    }
+    showStatus("Could not save settings", true);
+  }
+}
+
+function scheduleSave() {
+  if (state.isHydrating) return;
+
+  clearTimeout(state.saveTimerId);
+  state.saveTimerId = setTimeout(() => {
+    saveSettings();
+  }, SAVE_DEBOUNCE_MS);
 }
 
 function updateProviderVisibility() {
@@ -290,6 +344,8 @@ async function init() {
   speechSynthesis.addEventListener("voiceschanged", () => {
     loadVoices(els.builtinVoice.value);
   });
+
+  state.isHydrating = false;
 }
 
 els.provider.addEventListener("change", async () => {
@@ -297,41 +353,29 @@ els.provider.addEventListener("change", async () => {
   if (els.provider.value === "elevenlabs") {
     await refreshElevenLabsCatalog();
   }
+  scheduleSave();
 });
-els.speed.addEventListener("input", setRangeOutput);
-els.pitch.addEventListener("input", setRangeOutput);
+els.speed.addEventListener("input", () => {
+  setRangeOutput();
+  scheduleSave();
+});
+els.pitch.addEventListener("input", () => {
+  setRangeOutput();
+  scheduleSave();
+});
 els.elevenLabsRefreshBtn.addEventListener("click", refreshElevenLabsCatalog);
 els.elevenLabsVoiceSelect.addEventListener("change", () => {
   els.elevenLabsVoiceId.value = els.elevenLabsVoiceSelect.value;
+  scheduleSave();
 });
 
-els.saveBtn.addEventListener("click", async () => {
-  const payload = {
-    provider: els.provider.value,
-    builtinVoice: els.builtinVoice.value,
-    speed: Number(els.speed.value),
-    pitch: Number(els.pitch.value),
-    openaiApiKey: els.openaiApiKey.value.trim(),
-    openaiVoice: els.openaiVoice.value.trim() || "alloy",
-    openaiModel: els.openaiModel.value.trim() || "gpt-4o-mini-tts",
-    elevenLabsApiKey: els.elevenLabsApiKey.value.trim(),
-    elevenLabsModelId: els.elevenLabsModelId.value || DEFAULT_SETTINGS.elevenLabsModelId,
-    elevenLabsVoiceId: els.elevenLabsVoiceId.value.trim()
-  };
+[els.builtinVoice, els.openaiVoice, els.openaiModel, els.elevenLabsModelId].forEach((el) => {
+  el.addEventListener("change", scheduleSave);
+});
 
-  try {
-    await storageSet(payload);
-    showStatus("Saved");
-    setTimeout(() => {
-      els.status.textContent = "";
-    }, 1400);
-  } catch (error) {
-    if (isContextInvalidated(error)) {
-      showStatus("Extension updated. Reload this settings page.", true);
-      return;
-    }
-    showStatus("Could not save settings", true);
-  }
+[els.openaiApiKey, els.elevenLabsApiKey].forEach((el) => {
+  el.addEventListener("input", scheduleSave);
+  el.addEventListener("change", scheduleSave);
 });
 
 init().catch(() => {
