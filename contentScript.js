@@ -13,6 +13,7 @@
   };
 
   const BUILTIN_MAX_CHUNK_LENGTH = 220;
+  const API_MAX_CHUNK_LENGTH = 320;
 
   const state = {
     toolbar: null,
@@ -24,7 +25,9 @@
     activeText: "",
     currentMode: "idle",
     utterance: null,
-    audio: null
+    audio: null,
+    playbackSessionId: 0,
+    playbackAbortController: null
   };
 
   function setReadAloudLabel(button) {
@@ -176,6 +179,14 @@
     setStatusText("Playing");
   }
 
+  function setProcessingControls() {
+    state.currentMode = "processing";
+    state.playBtn.hidden = true;
+    state.pauseBtn.hidden = true;
+    state.stopBtn.hidden = false;
+    setStatusText("Processing");
+  }
+
   function setPausedControls() {
     state.currentMode = "paused";
     state.playBtn.hidden = true;
@@ -212,7 +223,23 @@
     }
   }
 
+  function isAbortError(error) {
+    const name = String(error?.name || "");
+    const message = String(error?.message || "");
+    return name === "AbortError" || message === "playback-cancelled";
+  }
+
+  function beginPlaybackSession() {
+    if (state.playbackAbortController) {
+      state.playbackAbortController.abort();
+      state.playbackAbortController = null;
+    }
+    state.playbackSessionId += 1;
+    return state.playbackSessionId;
+  }
+
   function stopPlayback() {
+    beginPlaybackSession();
     cancelSpeech();
     cancelAudio();
     state.activeText = "";
@@ -363,9 +390,10 @@
     }
   }
 
-  async function synthesizeOpenAI(text, settings) {
+  async function synthesizeOpenAI(text, settings, signal) {
     const response = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
+      signal,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${settings.openaiApiKey}`
@@ -385,7 +413,7 @@
     return response.blob();
   }
 
-  async function synthesizeElevenLabs(text, settings) {
+  async function synthesizeElevenLabs(text, settings, signal) {
     const voiceId = settings.elevenLabsVoiceId?.trim();
     if (!voiceId) {
       throw new Error("Set ElevenLabs Voice ID in settings");
@@ -395,6 +423,7 @@
 
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`, {
       method: "POST",
+      signal,
       headers: {
         "Content-Type": "application/json",
         "xi-api-key": settings.elevenLabsApiKey
@@ -436,7 +465,7 @@
     return "builtin";
   }
 
-  async function playAudioBlob(blob, settings) {
+  async function playAudioBlob(blob, settings, signal) {
     cancelAudio();
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
@@ -446,43 +475,93 @@
     state.audio = audio;
 
     return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        cancelAudio();
+        reject(new DOMException("Playback cancelled", "AbortError"));
+        return;
+      }
+
+      const handleAbort = () => {
+        cancelAudio();
+        reject(new DOMException("Playback cancelled", "AbortError"));
+      };
+
+      signal?.addEventListener("abort", handleAbort, { once: true });
+
       audio.onended = () => {
+        signal?.removeEventListener("abort", handleAbort);
         cancelAudio();
         resolve();
       };
       audio.onerror = () => {
+        signal?.removeEventListener("abort", handleAbort);
         cancelAudio();
         reject(new Error("Audio playback failed"));
       };
       audio.play().catch((err) => {
+        signal?.removeEventListener("abort", handleAbort);
         cancelAudio();
         reject(err);
       });
     });
   }
 
+  async function playElevenLabsChunked(text, settings, signal, sessionId) {
+    const chunks = splitTextIntoChunks(text, API_MAX_CHUNK_LENGTH);
+    if (!chunks.length) return;
+
+    let nextBlobPromise = synthesizeElevenLabs(chunks[0], settings, signal);
+
+    for (let index = 0; index < chunks.length; index += 1) {
+      if (signal.aborted || sessionId !== state.playbackSessionId) {
+        throw new Error("playback-cancelled");
+      }
+
+      setProcessingControls();
+      const blob = await nextBlobPromise;
+      const hasNext = index + 1 < chunks.length;
+      nextBlobPromise = hasNext
+        ? synthesizeElevenLabs(chunks[index + 1], settings, signal)
+        : null;
+
+      setPlayingControls();
+      await playAudioBlob(blob, settings, signal);
+    }
+  }
+
   async function playText(text) {
     stopPlayback();
     state.activeText = text;
-    setPlayingControls();
+    setProcessingControls();
     let provider = "builtin";
+    const sessionId = state.playbackSessionId;
+    const playbackAbortController = new AbortController();
+    state.playbackAbortController = playbackAbortController;
 
     try {
       const settings = await getSettings();
       provider = await resolveProvider(settings);
+      if (sessionId !== state.playbackSessionId) return;
 
       if (provider === "builtin") {
+        setPlayingControls();
         await speakBuiltIn(text, settings);
       } else if (provider === "openai") {
-        const blob = await synthesizeOpenAI(text, settings);
-        await playAudioBlob(blob, settings);
+        const blob = await synthesizeOpenAI(text, settings, playbackAbortController.signal);
+        setPlayingControls();
+        await playAudioBlob(blob, settings, playbackAbortController.signal);
       } else if (provider === "elevenlabs") {
-        const blob = await synthesizeElevenLabs(text, settings);
-        await playAudioBlob(blob, settings);
+        await playElevenLabsChunked(text, settings, playbackAbortController.signal, sessionId);
       }
 
-      setIdleControls();
+      if (sessionId === state.playbackSessionId) {
+        setIdleControls();
+      }
     } catch (error) {
+      if (isAbortError(error) || sessionId !== state.playbackSessionId) {
+        return;
+      }
+
       stopPlayback();
       setIdleControls();
       if (isContextInvalidated(error)) {
@@ -496,6 +575,10 @@
           ? "Browser voice unavailable. In Brave, try --enable-speech-dispatcher or use Chrome."
           : rawMessage,
       );
+    } finally {
+      if (state.playbackAbortController === playbackAbortController) {
+        state.playbackAbortController = null;
+      }
     }
   }
 
