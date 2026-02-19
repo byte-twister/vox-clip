@@ -50,9 +50,10 @@
 }
 
 .voxclip-btn-icon {
-  font-size: 12px;
-  line-height: 1;
-  opacity: 0.9;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border-radius: 3px;
 }
 
 .voxclip-btn:hover {

@@ -15,6 +15,7 @@
   const BUILTIN_MAX_CHUNK_LENGTH = 220;
   const API_MAX_CHUNK_LENGTH = 420;
   const ELEVENLABS_PREFETCH_AHEAD = 2;
+  const READ_ALOUD_ICON_DATA_URI = "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20128%20128%27%20width%3D%27128%27%20height%3D%27128%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27bgGrad%27%20x1%3D%270%25%27%20y1%3D%270%25%27%20x2%3D%27100%25%27%20y2%3D%27100%25%27%3E%3Cstop%20offset%3D%270%25%27%20style%3D%27stop-color%3A%231a1a2e%27/%3E%3Cstop%20offset%3D%27100%25%27%20style%3D%27stop-color%3A%2316213e%27/%3E%3C/linearGradient%3E%3ClinearGradient%20id%3D%27vGrad%27%20x1%3D%270%25%27%20y1%3D%270%25%27%20x2%3D%27100%25%27%20y2%3D%27100%25%27%3E%3Cstop%20offset%3D%270%25%27%20style%3D%27stop-color%3A%2300d4ff%27/%3E%3Cstop%20offset%3D%27100%25%27%20style%3D%27stop-color%3A%237b5ea7%27/%3E%3C/linearGradient%3E%3Cfilter%20id%3D%27glow%27%3E%3CfeGaussianBlur%20stdDeviation%3D%272%27%20result%3D%27blur%27/%3E%3CfeMerge%3E%3CfeMergeNode%20in%3D%27blur%27/%3E%3CfeMergeNode%20in%3D%27SourceGraphic%27/%3E%3C/feMerge%3E%3C/filter%3E%3C/defs%3E%3Crect%20width%3D%27128%27%20height%3D%27128%27%20rx%3D%2724%27%20fill%3D%27url%28%23bgGrad%29%27/%3E%3Cpath%20d%3D%27M38%2034%20L64%2088%20L90%2034%27%20fill%3D%27none%27%20stroke%3D%27url%28%23vGrad%29%27%20stroke-width%3D%2710%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%20filter%3D%27url%28%23glow%29%27/%3E%3Ccircle%20cx%3D%2764%27%20cy%3D%2788%27%20r%3D%275%27%20fill%3D%27%2300d4ff%27%20filter%3D%27url%28%23glow%29%27/%3E%3C/svg%3E";
 
   const state = {
     toolbar: null,
@@ -33,10 +34,11 @@
 
   function setReadAloudLabel(button) {
     button.innerHTML = "";
-    const icon = document.createElement("span");
+    const icon = document.createElement("img");
     icon.className = "voxclip-btn-icon";
+    icon.alt = "";
     icon.setAttribute("aria-hidden", "true");
-    icon.textContent = "🔊";
+    icon.src = READ_ALOUD_ICON_DATA_URI;
 
     const label = document.createElement("span");
     label.textContent = "Read aloud";
