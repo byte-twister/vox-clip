@@ -13,7 +13,7 @@
   };
 
   const BUILTIN_MAX_CHUNK_LENGTH = 220;
-  const API_MAX_CHUNK_LENGTH = 320;
+  const API_MAX_CHUNK_LENGTH = 420;
 
   const state = {
     toolbar: null,
@@ -283,8 +283,7 @@
     });
   }
 
-  function splitTextIntoChunks(text, maxLength = BUILTIN_MAX_CHUNK_LENGTH) {
-    const normalized = (text || "").trim().replace(/\s+/g, " ");
+  function splitNormalizedTextIntoChunks(normalized, maxLength) {
     if (!normalized) return [];
     if (normalized.length <= maxLength) return [normalized];
 
@@ -326,6 +325,31 @@
     });
 
     if (current) chunks.push(current);
+    return chunks;
+  }
+
+  function splitTextIntoChunks(text, maxLength = BUILTIN_MAX_CHUNK_LENGTH, splitOnParagraphs = false) {
+    const raw = (text || "").trim();
+    if (!raw) return [];
+
+    if (!splitOnParagraphs) {
+      return splitNormalizedTextIntoChunks(raw.replace(/\s+/g, " "), maxLength);
+    }
+
+    const paragraphs = raw
+      .split(/\n\s*\n+/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean);
+
+    if (paragraphs.length <= 1) {
+      return splitNormalizedTextIntoChunks(raw.replace(/\s+/g, " "), maxLength);
+    }
+
+    const chunks = [];
+    paragraphs.forEach((paragraph) => {
+      const paragraphChunks = splitNormalizedTextIntoChunks(paragraph.replace(/\s+/g, " "), maxLength);
+      chunks.push(...paragraphChunks);
+    });
     return chunks;
   }
 
@@ -507,7 +531,7 @@
   }
 
   async function playElevenLabsChunked(text, settings, signal, sessionId) {
-    const chunks = splitTextIntoChunks(text, API_MAX_CHUNK_LENGTH);
+    const chunks = splitTextIntoChunks(text, API_MAX_CHUNK_LENGTH, true);
     if (!chunks.length) return;
 
     for (let index = 0; index < chunks.length; index += 1) {
