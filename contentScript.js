@@ -14,6 +14,7 @@
 
   const BUILTIN_MAX_CHUNK_LENGTH = 220;
   const API_MAX_CHUNK_LENGTH = 420;
+  const ELEVENLABS_PREFETCH_AHEAD = 2;
 
   const state = {
     toolbar: null,
@@ -217,7 +218,9 @@
   function cancelAudio() {
     if (state.audio) {
       state.audio.pause();
-      URL.revokeObjectURL(state.audio.src);
+      if (state.audio.src && state.audio.src.startsWith("blob:")) {
+        URL.revokeObjectURL(state.audio.src);
+      }
       state.audio.src = "";
       state.audio = null;
     }
@@ -490,41 +493,63 @@
   }
 
   async function playAudioBlob(blob, settings, signal) {
-    cancelAudio();
     const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
+    const audio = state.audio || new Audio();
+    if (audio.src && audio.src.startsWith("blob:")) {
+      URL.revokeObjectURL(audio.src);
+    }
+    audio.src = url;
     const playbackRate = normalizePlaybackRate(settings?.speed);
     audio.defaultPlaybackRate = playbackRate;
     audio.playbackRate = playbackRate;
     state.audio = audio;
 
     return new Promise((resolve, reject) => {
+      let handleAbort = null;
+
+      const clearSource = () => {
+        if (audio.src && audio.src.startsWith("blob:")) {
+          URL.revokeObjectURL(audio.src);
+        }
+        audio.src = "";
+      };
+
+      const cleanup = (resetAudioState = false) => {
+        if (handleAbort) {
+          signal?.removeEventListener("abort", handleAbort);
+        }
+        audio.onended = null;
+        audio.onerror = null;
+        clearSource();
+        if (resetAudioState && state.audio === audio) {
+          state.audio = null;
+        }
+      };
+
       if (signal?.aborted) {
-        cancelAudio();
+        cleanup(true);
         reject(new DOMException("Playback cancelled", "AbortError"));
         return;
       }
 
-      const handleAbort = () => {
-        cancelAudio();
+      handleAbort = () => {
+        audio.pause();
+        cleanup(true);
         reject(new DOMException("Playback cancelled", "AbortError"));
       };
 
       signal?.addEventListener("abort", handleAbort, { once: true });
 
       audio.onended = () => {
-        signal?.removeEventListener("abort", handleAbort);
-        cancelAudio();
+        cleanup();
         resolve();
       };
       audio.onerror = () => {
-        signal?.removeEventListener("abort", handleAbort);
-        cancelAudio();
+        cleanup(true);
         reject(new Error("Audio playback failed"));
       };
       audio.play().catch((err) => {
-        signal?.removeEventListener("abort", handleAbort);
-        cancelAudio();
+        cleanup(true);
         reject(err);
       });
     });
@@ -534,16 +559,45 @@
     const chunks = splitTextIntoChunks(text, API_MAX_CHUNK_LENGTH, true);
     if (!chunks.length) return;
 
+    const pending = new Map();
+    const queueChunk = (index) => {
+      if (index >= chunks.length || pending.has(index)) return;
+      const request = synthesizeElevenLabs(chunks[index], settings, signal)
+        .then((blob) => ({ ok: true, blob }))
+        .catch((error) => ({ ok: false, error }));
+      pending.set(index, request);
+    };
+
+    for (let index = 0; index <= ELEVENLABS_PREFETCH_AHEAD; index += 1) {
+      queueChunk(index);
+    }
+
     for (let index = 0; index < chunks.length; index += 1) {
       if (signal.aborted || sessionId !== state.playbackSessionId) {
         throw new Error("playback-cancelled");
       }
 
+      queueChunk(index + ELEVENLABS_PREFETCH_AHEAD);
       setProcessingControls();
-      const blob = await synthesizeElevenLabs(chunks[index], settings, signal);
+      queueChunk(index);
+      const result = await pending.get(index);
+      pending.delete(index);
+
+      if (!result?.ok) {
+        if (isAbortError(result?.error)) {
+          throw result.error;
+        }
+        const blob = await synthesizeElevenLabs(chunks[index], settings, signal);
+        setPlayingControls();
+        await playAudioBlob(blob, settings, signal);
+        queueChunk(index + ELEVENLABS_PREFETCH_AHEAD + 1);
+        continue;
+      }
 
       setPlayingControls();
-      await playAudioBlob(blob, settings, signal);
+      await playAudioBlob(result.blob, settings, signal);
+
+      queueChunk(index + ELEVENLABS_PREFETCH_AHEAD + 1);
     }
   }
 
