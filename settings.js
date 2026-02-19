@@ -107,22 +107,33 @@ function populateElevenLabsModels(models, selectedModelId) {
 function populateElevenLabsVoices(voices, selectedVoiceId) {
   els.elevenLabsVoiceSelect.innerHTML = "";
 
-  const customOption = document.createElement("option");
-  customOption.value = "";
-  customOption.textContent = "Custom voice ID";
-  els.elevenLabsVoiceSelect.append(customOption);
+  const placeholderOption = document.createElement("option");
+  placeholderOption.value = "";
+  placeholderOption.textContent = voices.length ? "Select a voice" : "No voices loaded";
+  els.elevenLabsVoiceSelect.append(placeholderOption);
 
   voices.forEach((voice) => {
     const option = document.createElement("option");
     option.value = voice.voice_id;
-    option.textContent = `${voice.name} (${voice.voice_id})`;
+    option.textContent = voice.name;
     option.selected = voice.voice_id === selectedVoiceId;
     els.elevenLabsVoiceSelect.append(option);
   });
 
-  if (!voices.some((voice) => voice.voice_id === selectedVoiceId)) {
-    els.elevenLabsVoiceSelect.value = "";
+  const hasSelectedVoice = voices.some((voice) => voice.voice_id === selectedVoiceId);
+  if (!hasSelectedVoice) {
+    if (selectedVoiceId) {
+      const existingOption = document.createElement("option");
+      existingOption.value = selectedVoiceId;
+      existingOption.textContent = "Previously selected voice";
+      existingOption.selected = true;
+      els.elevenLabsVoiceSelect.append(existingOption);
+    } else {
+      els.elevenLabsVoiceSelect.value = "";
+    }
   }
+
+  els.elevenLabsVoiceId.value = selectedVoiceId || "";
 }
 
 async function fetchElevenLabsCatalog(apiKey) {
@@ -239,14 +250,7 @@ els.speed.addEventListener("input", setRangeOutput);
 els.pitch.addEventListener("input", setRangeOutput);
 els.elevenLabsRefreshBtn.addEventListener("click", refreshElevenLabsCatalog);
 els.elevenLabsVoiceSelect.addEventListener("change", () => {
-  if (els.elevenLabsVoiceSelect.value) {
-    els.elevenLabsVoiceId.value = els.elevenLabsVoiceSelect.value;
-  }
-});
-els.elevenLabsVoiceId.addEventListener("input", () => {
-  const trimmed = els.elevenLabsVoiceId.value.trim();
-  const hasMatchingOption = Array.from(els.elevenLabsVoiceSelect.options).some((option) => option.value === trimmed);
-  els.elevenLabsVoiceSelect.value = hasMatchingOption ? trimmed : "";
+  els.elevenLabsVoiceId.value = els.elevenLabsVoiceSelect.value;
 });
 
 els.saveBtn.addEventListener("click", async () => {

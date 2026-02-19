@@ -1,0 +1,3 @@
+const u = new SpeechSynthesisUtterance("hello from browser tts");
+u.onerror = (e) => console.log("tts error:", e.error);
+speechSynthesis.speak(u);

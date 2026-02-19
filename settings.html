@@ -70,13 +70,10 @@
         <label class="field">
           <span>Voice</span>
           <select id="elevenLabsVoiceSelect">
-            <option value="">Custom voice ID</option>
+            <option value="">Select a voice</option>
           </select>
         </label>
-        <label class="field">
-          <span>Voice ID (Speech ID)</span>
-          <input id="elevenLabsVoiceId" type="text" placeholder="voice-id" />
-        </label>
+        <input id="elevenLabsVoiceId" type="hidden" />
         <div class="provider-actions">
           <button id="elevenLabsRefreshBtn" type="button">Load models & voices</button>
           <span id="elevenLabsFetchStatus" class="provider-status"></span>
