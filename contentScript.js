@@ -40,6 +40,12 @@
     button.append(icon, label);
   }
 
+  function setStatusText(message) {
+    const value = (message || "").trim();
+    state.statusText.textContent = value;
+    state.statusText.hidden = !value;
+  }
+
   function isContextInvalidated(error) {
     const message = String(error?.message || "");
     return message.includes("Extension context invalidated");
@@ -101,7 +107,7 @@
 
     const status = document.createElement("span");
     status.className = "voxclip-status";
-    status.textContent = "";
+    status.hidden = true;
 
     toolbar.append(playBtn, pauseBtn, stopBtn, status);
     document.documentElement.appendChild(toolbar);
@@ -158,7 +164,7 @@
     setReadAloudLabel(state.playBtn);
     state.pauseBtn.hidden = true;
     state.stopBtn.hidden = true;
-    state.statusText.textContent = "";
+    setStatusText("");
   }
 
   function setPlayingControls() {
@@ -167,7 +173,7 @@
     state.pauseBtn.hidden = false;
     state.stopBtn.hidden = false;
     state.pauseBtn.textContent = "Pause";
-    state.statusText.textContent = "Playing";
+    setStatusText("Playing");
   }
 
   function setPausedControls() {
@@ -176,14 +182,14 @@
     state.pauseBtn.hidden = false;
     state.stopBtn.hidden = false;
     state.pauseBtn.textContent = "Resume";
-    state.statusText.textContent = "Paused";
+    setStatusText("Paused");
   }
 
   function setErrorStatus(message) {
-    state.statusText.textContent = message;
+    setStatusText(message);
     setTimeout(() => {
       if (state.currentMode === "idle") {
-        state.statusText.textContent = "";
+        setStatusText("");
       }
     }, 2200);
   }

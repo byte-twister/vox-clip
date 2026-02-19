@@ -78,7 +78,15 @@
 }
 
 .voxclip-status {
-  min-width: 54px;
+  min-width: 0;
   opacity: 0.88;
   color: #8b949e;
+}
+
+.voxclip-status[hidden] {
+  display: none;
+}
+
+.voxclip-status:empty {
+  display: none;
 }
