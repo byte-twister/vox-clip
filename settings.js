@@ -237,15 +237,22 @@ async function init() {
   loadVoices(settings.builtinVoice);
   populateElevenLabsModels(FALLBACK_ELEVEN_MODELS, settings.elevenLabsModelId);
   populateElevenLabsVoices([], settings.elevenLabsVoiceId);
-  await refreshElevenLabsCatalog();
   updateProviderVisibility();
+  if (els.provider.value === "elevenlabs") {
+    await refreshElevenLabsCatalog();
+  }
 
   speechSynthesis.addEventListener("voiceschanged", () => {
     loadVoices(els.builtinVoice.value);
   });
 }
 
-els.provider.addEventListener("change", updateProviderVisibility);
+els.provider.addEventListener("change", async () => {
+  updateProviderVisibility();
+  if (els.provider.value === "elevenlabs") {
+    await refreshElevenLabsCatalog();
+  }
+});
 els.speed.addEventListener("input", setRangeOutput);
 els.pitch.addEventListener("input", setRangeOutput);
 els.elevenLabsRefreshBtn.addEventListener("click", refreshElevenLabsCatalog);

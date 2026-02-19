@@ -75,7 +75,11 @@
         </label>
         <input id="elevenLabsVoiceId" type="hidden" />
         <div class="provider-actions">
-          <button id="elevenLabsRefreshBtn" type="button">Load models & voices</button>
+          <button id="elevenLabsRefreshBtn" class="icon-btn" type="button" aria-label="Refresh ElevenLabs models and voices" title="Refresh models and voices">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M20 11a8 8 0 1 0 2 5.2h-2A6 6 0 1 1 18.4 10H15l4-4 4 4z" />
+            </svg>
+          </button>
           <span id="elevenLabsFetchStatus" class="provider-status"></span>
         </div>
       </section>
