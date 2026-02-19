@@ -1,9 +1,12 @@
 :root {
-  --voxclip-ink: #f8fafc;
-  --voxclip-panel: linear-gradient(135deg, #0f172a, #1e293b);
-  --voxclip-line: rgba(148, 163, 184, 0.35);
-  --voxclip-btn: #0d9488;
-  --voxclip-btn-hover: #0f766e;
+  --voxclip-ink: #c9d1d9;
+  --voxclip-panel: linear-gradient(180deg, #161b22, #0f141b);
+  --voxclip-line: #30363d;
+  --voxclip-btn: #6e7681;
+  --voxclip-btn-hover: #565e68;
+  --voxclip-btn-muted: #21262d;
+  --voxclip-btn-muted-hover: #30363d;
+  --voxclip-focus: #8b949e;
 }
 
 .voxclip-toolbar {
@@ -13,12 +16,12 @@
   align-items: center;
   gap: 6px;
   padding: 7px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--voxclip-line);
   background: var(--voxclip-panel);
   color: var(--voxclip-ink);
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.34);
-  font: 12px/1.2 "Avenir Next", "Segoe UI", sans-serif;
+  box-shadow: 0 12px 24px rgba(1, 4, 9, 0.42);
+  font: 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   opacity: 0;
   pointer-events: none;
   transform: translateX(-50%) translateY(3px);
@@ -32,17 +35,42 @@
 }
 
 .voxclip-btn {
-  border: 0;
-  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--voxclip-line);
+  border-radius: 6px;
   background: var(--voxclip-btn);
-  color: #fff;
+  color: #f0f6fc;
   padding: 5px 9px;
   font: inherit;
+  font-weight: 600;
   cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.voxclip-btn-icon {
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.9;
 }
 
 .voxclip-btn:hover {
   background: var(--voxclip-btn-hover);
+}
+
+.voxclip-btn:focus-visible {
+  outline: none;
+  border-color: var(--voxclip-focus);
+  box-shadow: 0 0 0 3px rgba(139, 148, 158, 0.24);
+}
+
+.voxclip-btn + .voxclip-btn {
+  background: var(--voxclip-btn-muted);
+}
+
+.voxclip-btn + .voxclip-btn:hover {
+  background: var(--voxclip-btn-muted-hover);
 }
 
 .voxclip-btn:active {
@@ -52,4 +80,5 @@
 .voxclip-status {
   min-width: 54px;
   opacity: 0.88;
+  color: #8b949e;
 }

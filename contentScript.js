@@ -27,6 +27,19 @@
     audio: null
   };
 
+  function setReadAloudLabel(button) {
+    button.innerHTML = "";
+    const icon = document.createElement("span");
+    icon.className = "voxclip-btn-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = "🔊";
+
+    const label = document.createElement("span");
+    label.textContent = "Read aloud";
+
+    button.append(icon, label);
+  }
+
   function isContextInvalidated(error) {
     const message = String(error?.message || "");
     return message.includes("Extension context invalidated");
@@ -72,7 +85,7 @@
     const playBtn = document.createElement("button");
     playBtn.type = "button";
     playBtn.className = "voxclip-btn";
-    playBtn.textContent = "Play";
+    setReadAloudLabel(playBtn);
 
     const pauseBtn = document.createElement("button");
     pauseBtn.type = "button";
@@ -142,6 +155,7 @@
   function setIdleControls() {
     state.currentMode = "idle";
     state.playBtn.hidden = false;
+    setReadAloudLabel(state.playBtn);
     state.pauseBtn.hidden = true;
     state.stopBtn.hidden = true;
     state.statusText.textContent = "";
