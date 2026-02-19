@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "VoxClip",
+  "description": "Read selected text aloud with built-in or AI voices.",
+  "version": "0.1.0",
+  "permissions": ["storage", "contextMenus"],
+  "host_permissions": [
+    "https://api.openai.com/*",
+    "https://api.elevenlabs.io/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["contentScript.js"],
+      "css": ["contentStyles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "settings.html",
+  "action": {
+    "default_title": "VoxClip Settings"
+  }
+}

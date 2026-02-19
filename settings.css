@@ -1,0 +1,133 @@
+:root {
+  --bg-0: #f4f1ea;
+  --bg-1: #fffef9;
+  --ink: #1e2a33;
+  --muted: #556570;
+  --line: #d5ccc0;
+  --accent: #0d9488;
+  --accent-ink: #ffffff;
+  --panel-shadow: 0 24px 48px rgba(24, 39, 52, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  font: 15px/1.45 "Avenir Next", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at 10% 20%, rgba(13, 148, 136, 0.16), transparent 36%),
+    radial-gradient(circle at 90% 0%, rgba(12, 74, 110, 0.14), transparent 30%),
+    linear-gradient(180deg, var(--bg-0), #ebe4d8);
+}
+
+.panel {
+  max-width: 760px;
+  margin: 28px auto;
+  padding: 24px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--bg-1), #f8f5ee);
+  box-shadow: var(--panel-shadow);
+  animation: panelIn 320ms ease;
+}
+
+h1 {
+  margin: 0;
+  font: 700 30px/1 "Palatino Linotype", "Book Antiqua", serif;
+  letter-spacing: 0.3px;
+}
+
+h2 {
+  margin: 0 0 10px;
+  font: 700 17px/1.1 "Palatino Linotype", "Book Antiqua", serif;
+}
+
+.hint {
+  margin: 8px 0 20px;
+  color: var(--muted);
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+
+.field span {
+  font-weight: 600;
+}
+
+input,
+select,
+button {
+  font: inherit;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid #b8c2cc;
+  background: #fffdfa;
+  color: var(--ink);
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid rgba(13, 148, 136, 0.26);
+  outline-offset: 1px;
+}
+
+.provider-block {
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #d2c8bd;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(246, 242, 235, 0.84));
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+button {
+  border: 0;
+  border-radius: 9px;
+  padding: 10px 15px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 120ms ease, background-color 120ms ease;
+}
+
+button:hover {
+  background: #0f766e;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+#status {
+  color: #065f46;
+  font-weight: 600;
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

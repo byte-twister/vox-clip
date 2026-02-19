@@ -1,0 +1,55 @@
+:root {
+  --voxclip-ink: #f8fafc;
+  --voxclip-panel: linear-gradient(135deg, #0f172a, #1e293b);
+  --voxclip-line: rgba(148, 163, 184, 0.35);
+  --voxclip-btn: #0d9488;
+  --voxclip-btn-hover: #0f766e;
+}
+
+.voxclip-toolbar {
+  position: absolute;
+  z-index: 2147483647;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px;
+  border-radius: 10px;
+  border: 1px solid var(--voxclip-line);
+  background: var(--voxclip-panel);
+  color: var(--voxclip-ink);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.34);
+  font: 12px/1.2 "Avenir Next", "Segoe UI", sans-serif;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(3px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.voxclip-toolbar[data-visible="true"] {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+.voxclip-btn {
+  border: 0;
+  border-radius: 7px;
+  background: var(--voxclip-btn);
+  color: #fff;
+  padding: 5px 9px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.voxclip-btn:hover {
+  background: var(--voxclip-btn-hover);
+}
+
+.voxclip-btn:active {
+  transform: translateY(1px);
+}
+
+.voxclip-status {
+  min-width: 54px;
+  opacity: 0.88;
+}

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VoxClip Settings</title>
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <h1>VoxClip</h1>
+      <p class="hint">Read selected text aloud with built-in voices or optional AI providers.</p>
+
+      <label class="field">
+        <span>Provider</span>
+        <select id="provider">
+          <option value="builtin">Browser Built-in (Default)</option>
+          <option value="openai">OpenAI</option>
+          <option value="elevenlabs">ElevenLabs</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Built-in Voice</span>
+        <select id="builtinVoice"></select>
+      </label>
+
+      <label class="field">
+        <span>Speed</span>
+        <input id="speed" type="range" min="0.5" max="2" step="0.1" />
+        <output id="speedOut"></output>
+      </label>
+
+      <label class="field">
+        <span>Pitch</span>
+        <input id="pitch" type="range" min="0" max="2" step="0.1" />
+        <output id="pitchOut"></output>
+      </label>
+
+      <section class="provider-block" id="openaiFields">
+        <h2>OpenAI</h2>
+        <label class="field">
+          <span>API Key</span>
+          <input id="openaiApiKey" type="password" autocomplete="off" placeholder="sk-..." />
+        </label>
+        <label class="field">
+          <span>Model</span>
+          <input id="openaiModel" type="text" placeholder="gpt-4o-mini-tts" />
+        </label>
+        <label class="field">
+          <span>Voice</span>
+          <input id="openaiVoice" type="text" placeholder="alloy" />
+        </label>
+      </section>
+
+      <section class="provider-block" id="elevenLabsFields">
+        <h2>ElevenLabs</h2>
+        <label class="field">
+          <span>API Key</span>
+          <input id="elevenLabsApiKey" type="password" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span>Voice ID</span>
+          <input id="elevenLabsVoiceId" type="text" placeholder="voice-id" />
+        </label>
+      </section>
+
+      <div class="actions">
+        <button id="saveBtn" type="button">Save Settings</button>
+        <span id="status"></span>
+      </div>
+    </main>
+
+    <script src="settings.js"></script>
+  </body>
+</html>

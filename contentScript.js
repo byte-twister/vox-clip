@@ -1,0 +1,414 @@
+(() => {
+  const DEFAULT_SETTINGS = {
+    provider: "builtin",
+    builtinVoice: "",
+    speed: 1,
+    pitch: 1,
+    openaiApiKey: "",
+    openaiVoice: "alloy",
+    openaiModel: "gpt-4o-mini-tts",
+    elevenLabsApiKey: "",
+    elevenLabsVoiceId: ""
+  };
+
+  const state = {
+    toolbar: null,
+    playBtn: null,
+    pauseBtn: null,
+    stopBtn: null,
+    statusText: null,
+    visibleSelectionText: "",
+    activeText: "",
+    currentMode: "idle",
+    utterance: null,
+    audio: null
+  };
+
+  function getSettings() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(DEFAULT_SETTINGS, (saved) => {
+        resolve({ ...DEFAULT_SETTINGS, ...saved });
+      });
+    });
+  }
+
+  function getSelectedText() {
+    return (window.getSelection()?.toString() || "").trim();
+  }
+
+  function getSelectionRect() {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    if (!rect || (!rect.width && !rect.height)) return null;
+    return rect;
+  }
+
+  function ensureToolbar() {
+    if (state.toolbar) return;
+
+    const toolbar = document.createElement("div");
+    toolbar.className = "voxclip-toolbar";
+    toolbar.setAttribute("role", "toolbar");
+    toolbar.setAttribute("aria-label", "VoxClip controls");
+
+    const playBtn = document.createElement("button");
+    playBtn.type = "button";
+    playBtn.className = "voxclip-btn";
+    playBtn.textContent = "Play";
+
+    const pauseBtn = document.createElement("button");
+    pauseBtn.type = "button";
+    pauseBtn.className = "voxclip-btn";
+    pauseBtn.textContent = "Pause";
+    pauseBtn.hidden = true;
+
+    const stopBtn = document.createElement("button");
+    stopBtn.type = "button";
+    stopBtn.className = "voxclip-btn";
+    stopBtn.textContent = "Stop";
+    stopBtn.hidden = true;
+
+    const status = document.createElement("span");
+    status.className = "voxclip-status";
+    status.textContent = "";
+
+    toolbar.append(playBtn, pauseBtn, stopBtn, status);
+    document.documentElement.appendChild(toolbar);
+
+    playBtn.addEventListener("click", () => {
+      const text = state.visibleSelectionText || state.activeText || getSelectedText();
+      if (text) {
+        playText(text);
+      }
+    });
+
+    pauseBtn.addEventListener("click", () => {
+      if (state.currentMode === "playing") {
+        pausePlayback();
+      } else if (state.currentMode === "paused") {
+        resumePlayback();
+      }
+    });
+
+    stopBtn.addEventListener("click", () => {
+      stopPlayback();
+      setIdleControls();
+    });
+
+    state.toolbar = toolbar;
+    state.playBtn = playBtn;
+    state.pauseBtn = pauseBtn;
+    state.stopBtn = stopBtn;
+    state.statusText = status;
+  }
+
+  function placeToolbarNearSelection() {
+    ensureToolbar();
+    const rect = getSelectionRect();
+    if (!rect) return;
+
+    const top = window.scrollY + rect.top - 44;
+    const left = window.scrollX + rect.left + rect.width / 2;
+
+    state.toolbar.style.top = `${Math.max(window.scrollY + 6, top)}px`;
+    state.toolbar.style.left = `${Math.max(6, left)}px`;
+    state.toolbar.style.transform = "translateX(-50%)";
+    state.toolbar.dataset.visible = "true";
+  }
+
+  function hideToolbar() {
+    if (!state.toolbar) return;
+    state.toolbar.dataset.visible = "false";
+  }
+
+  function setIdleControls() {
+    state.currentMode = "idle";
+    state.playBtn.hidden = false;
+    state.pauseBtn.hidden = true;
+    state.stopBtn.hidden = true;
+    state.statusText.textContent = "";
+  }
+
+  function setPlayingControls() {
+    state.currentMode = "playing";
+    state.playBtn.hidden = true;
+    state.pauseBtn.hidden = false;
+    state.stopBtn.hidden = false;
+    state.pauseBtn.textContent = "Pause";
+    state.statusText.textContent = "Playing";
+  }
+
+  function setPausedControls() {
+    state.currentMode = "paused";
+    state.playBtn.hidden = true;
+    state.pauseBtn.hidden = false;
+    state.stopBtn.hidden = false;
+    state.pauseBtn.textContent = "Resume";
+    state.statusText.textContent = "Paused";
+  }
+
+  function setErrorStatus(message) {
+    state.statusText.textContent = message;
+    setTimeout(() => {
+      if (state.currentMode === "idle") {
+        state.statusText.textContent = "";
+      }
+    }, 2200);
+  }
+
+  function cancelSpeech() {
+    if (state.utterance) {
+      state.utterance.onend = null;
+      state.utterance.onerror = null;
+    }
+    speechSynthesis.cancel();
+    state.utterance = null;
+  }
+
+  function cancelAudio() {
+    if (state.audio) {
+      state.audio.pause();
+      URL.revokeObjectURL(state.audio.src);
+      state.audio.src = "";
+      state.audio = null;
+    }
+  }
+
+  function stopPlayback() {
+    cancelSpeech();
+    cancelAudio();
+    state.activeText = "";
+  }
+
+  function getVoices() {
+    return new Promise((resolve) => {
+      const voices = speechSynthesis.getVoices();
+      if (voices.length) {
+        resolve(voices);
+        return;
+      }
+
+      const onChange = () => {
+        speechSynthesis.removeEventListener("voiceschanged", onChange);
+        resolve(speechSynthesis.getVoices());
+      };
+
+      speechSynthesis.addEventListener("voiceschanged", onChange);
+      setTimeout(() => {
+        speechSynthesis.removeEventListener("voiceschanged", onChange);
+        resolve(speechSynthesis.getVoices());
+      }, 1200);
+    });
+  }
+
+  async function speakBuiltIn(text, settings) {
+    const voices = await getVoices();
+    const utterance = new SpeechSynthesisUtterance(text);
+    if (settings.builtinVoice) {
+      const voice = voices.find((v) => v.name === settings.builtinVoice);
+      if (voice) utterance.voice = voice;
+    }
+    utterance.rate = Number(settings.speed) || 1;
+    utterance.pitch = Number(settings.pitch) || 1;
+    state.utterance = utterance;
+
+    return new Promise((resolve, reject) => {
+      utterance.onend = () => {
+        state.utterance = null;
+        resolve();
+      };
+      utterance.onerror = (event) => {
+        state.utterance = null;
+        reject(new Error(event.error || "Speech synthesis failed"));
+      };
+      speechSynthesis.speak(utterance);
+    });
+  }
+
+  async function synthesizeOpenAI(text, settings) {
+    const response = await fetch("https://api.openai.com/v1/audio/speech", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${settings.openaiApiKey}`
+      },
+      body: JSON.stringify({
+        model: settings.openaiModel || "gpt-4o-mini-tts",
+        voice: settings.openaiVoice || "alloy",
+        input: text,
+        speed: Number(settings.speed) || 1
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI TTS failed (${response.status})`);
+    }
+
+    return response.blob();
+  }
+
+  async function synthesizeElevenLabs(text, settings) {
+    const voiceId = settings.elevenLabsVoiceId?.trim();
+    if (!voiceId) {
+      throw new Error("Set ElevenLabs Voice ID in settings");
+    }
+
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "xi-api-key": settings.elevenLabsApiKey
+      },
+      body: JSON.stringify({
+        text,
+        model_id: "eleven_multilingual_v2",
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75,
+          style: 0.0,
+          use_speaker_boost: true
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`ElevenLabs TTS failed (${response.status})`);
+    }
+
+    return response.blob();
+  }
+
+  function hasProviderKey(provider, settings) {
+    if (provider === "openai") return !!settings.openaiApiKey?.trim();
+    if (provider === "elevenlabs") return !!settings.elevenLabsApiKey?.trim();
+    return true;
+  }
+
+  async function resolveProvider(settings) {
+    const preferred = settings.provider || "builtin";
+    if (!hasProviderKey(preferred, settings)) return "builtin";
+    if (preferred === "openai" || preferred === "elevenlabs" || preferred === "builtin") return preferred;
+    return "builtin";
+  }
+
+  async function playAudioBlob(blob) {
+    cancelAudio();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.playbackRate = 1;
+    state.audio = audio;
+
+    return new Promise((resolve, reject) => {
+      audio.onended = () => {
+        cancelAudio();
+        resolve();
+      };
+      audio.onerror = () => {
+        cancelAudio();
+        reject(new Error("Audio playback failed"));
+      };
+      audio.play().catch((err) => {
+        cancelAudio();
+        reject(err);
+      });
+    });
+  }
+
+  async function playText(text) {
+    stopPlayback();
+    state.activeText = text;
+    setPlayingControls();
+
+    try {
+      const settings = await getSettings();
+      const provider = await resolveProvider(settings);
+
+      if (provider === "builtin") {
+        await speakBuiltIn(text, settings);
+      } else if (provider === "openai") {
+        const blob = await synthesizeOpenAI(text, settings);
+        await playAudioBlob(blob);
+      } else if (provider === "elevenlabs") {
+        const blob = await synthesizeElevenLabs(text, settings);
+        await playAudioBlob(blob);
+      }
+
+      setIdleControls();
+    } catch (error) {
+      stopPlayback();
+      setIdleControls();
+      setErrorStatus(error.message || "Playback failed");
+    }
+  }
+
+  function pausePlayback() {
+    if (state.audio) {
+      state.audio.pause();
+      setPausedControls();
+      return;
+    }
+    if (state.utterance && speechSynthesis.speaking) {
+      speechSynthesis.pause();
+      setPausedControls();
+    }
+  }
+
+  function resumePlayback() {
+    if (state.audio) {
+      state.audio.play().then(() => setPlayingControls()).catch(() => setErrorStatus("Could not resume"));
+      return;
+    }
+    if (state.utterance && speechSynthesis.paused) {
+      speechSynthesis.resume();
+      setPlayingControls();
+    }
+  }
+
+  function updateSelectionToolbar() {
+    const text = getSelectedText();
+    if (!text) {
+      state.visibleSelectionText = "";
+      hideToolbar();
+      return;
+    }
+
+    state.visibleSelectionText = text;
+    placeToolbarNearSelection();
+  }
+
+  document.addEventListener("mouseup", () => {
+    setTimeout(updateSelectionToolbar, 0);
+  });
+
+  document.addEventListener("keyup", (event) => {
+    if (event.key === "Shift" || event.key.startsWith("Arrow") || event.key === "Control") {
+      setTimeout(updateSelectionToolbar, 0);
+    }
+  });
+
+  document.addEventListener("mousedown", (event) => {
+    if (!state.toolbar) return;
+    if (event.target instanceof Node && state.toolbar.contains(event.target)) return;
+    if (!getSelectedText()) hideToolbar();
+  });
+
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type !== "VOXCLIP_READ_TEXT") return;
+    const text = (message.text || "").trim();
+    if (!text) return;
+
+    ensureToolbar();
+    state.visibleSelectionText = text;
+    state.toolbar.style.top = `${window.scrollY + 14}px`;
+    state.toolbar.style.left = `${window.scrollX + 14}px`;
+    state.toolbar.style.transform = "none";
+    state.toolbar.dataset.visible = "true";
+
+    playText(text);
+  });
+
+  ensureToolbar();
+  setIdleControls();
+})();
