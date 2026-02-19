@@ -579,7 +579,6 @@
 
       queueChunk(index + ELEVENLABS_PREFETCH_AHEAD);
       setProcessingControls();
-      queueChunk(index);
       const result = await pending.get(index);
       pending.delete(index);
 
@@ -596,8 +595,6 @@
 
       setPlayingControls();
       await playAudioBlob(result.blob, settings, signal);
-
-      queueChunk(index + ELEVENLABS_PREFETCH_AHEAD + 1);
     }
   }
 
