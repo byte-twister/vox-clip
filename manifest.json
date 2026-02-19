@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "VoxClip",
   "description": "Read selected text aloud with built-in or AI voices.",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "permissions": ["storage", "contextMenus"],
   "host_permissions": [
     "https://api.openai.com/*",
