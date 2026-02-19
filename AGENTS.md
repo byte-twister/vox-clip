@@ -48,6 +48,8 @@ There is no `package.json`, Makefile, or CI pipeline at this time.
   - context menu trigger starts playback,
   - pause/resume toggles state,
   - stop returns controls to idle,
+  - ElevenLabs shows `Processing` while waiting, then `Playing` once audio starts,
+  - ElevenLabs long text continues across chunks/paragraph boundaries,
   - provider falls back to built-in when API key is missing,
   - settings persist after reload.
 
