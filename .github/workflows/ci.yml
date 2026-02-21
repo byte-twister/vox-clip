@@ -27,3 +27,35 @@ jobs:
 
       - name: Diff hygiene
         run: git diff --check
+
+  package:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: checks
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version from manifest
+        id: version
+        run: echo "version=$(node -p "require('./manifest.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Create ZIP
+        run: |
+          zip -r voxclip-${{ steps.version.outputs.version }}.zip \
+            manifest.json \
+            background.js \
+            contentScript.js \
+            contentStyles.css \
+            settings.html \
+            settings.js \
+            settings.css \
+            icons/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxclip-${{ steps.version.outputs.version }}
+          path: voxclip-${{ steps.version.outputs.version }}.zip
+          retention-days: 90
